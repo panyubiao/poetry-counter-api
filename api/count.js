@@ -53,7 +53,8 @@ export default async function handler(req, res) {
     res.status(500).json({
       count: 0,
       success: false,
-      message: '统计接口错误'
+      message: '统计接口错误.'
     });
   }
 }
+
