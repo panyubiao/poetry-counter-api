@@ -1,5 +1,5 @@
 {
-  "name": "poetry-visit-counter",
+  "name": "poetry-counter-api",
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
@@ -9,4 +9,5 @@
     "dev": "vercel dev"
   }
 }
+
 
