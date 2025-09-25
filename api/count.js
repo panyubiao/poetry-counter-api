@@ -1,24 +1,59 @@
-// 存储访问次数（使用 Vercel KV 免费存储，避免服务器重启后数据丢失）
-import { kv } from '@vercel/kv';
+import { MongoClient } from 'mongodb';
+
+// 从环境变量读取 MongoDB 连接串
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('请在 Vercel 环境变量中配置 MONGODB_URI');
+}
+
+// 全局缓存 MongoDB 客户端连接
+let client;
+let clientPromise;
+
+if (process.env.NODE_ENV === 'development') {
+  // 开发环境：避免每次热重载创建新连接
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(MONGODB_URI);
+    global._mongoClientPromise = client.connect();
+  }
+  clientPromise = global._mongoClientPromise;
+} else {
+  // 生产环境：每次新建连接
+  client = new MongoClient(MONGODB_URI);
+  clientPromise = client.connect();
+}
 
 export default async function handler(req, res) {
-  // 允许跨域访问（解决前端调用问题）
+  // 允许跨域
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
-  
+
   try {
-    // 从 KV 存储中获取当前次数，没有则初始化为 0
-    let count = await kv.get('poetry_visit_count') || 0;
-    // 增加访问次数
-    count = parseInt(count) + 1;
-    // 保存更新后的次数
-    await kv.set('poetry_visit_count', count);
-    // 返回总访问次数
-    res.status(200).json({ count: count, success: true });
+    const client = await clientPromise;
+    const db = client.db('visit-counter'); // 数据库名
+    const collection = db.collection('counters'); // 集合名
+
+    // 原子操作：查找并自增，如果不存在则创建
+    const result = await collection.findOneAndUpdate(
+      { _id: 'total-visits' },
+      { $inc: { count: 1 } },
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    const count = result.value.count;
+
+    res.status(200).json({
+      count,
+      success: true,
+      message: '总访问次数统计成功'
+    });
   } catch (error) {
-    console.error('统计失败:', error);
-    // 出错时返回当前缓存的次数（避免影响前端显示）
-    const count = await kv.get('poetry_visit_count') || 0;
-    res.status(200).json({ count: count, success: false });
+    console.error('访问统计出错:', error);
+    res.status(500).json({
+      count: 0,
+      success: false,
+      message: '统计接口错误'
+    });
   }
 }
