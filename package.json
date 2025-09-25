@@ -1,14 +1,7 @@
 {
-  "name": "poetry-counter-api",
+  "name": "poetry-visit-counter",
   "version": "1.0.0",
-  "type": "module",
   "dependencies": {
     "@vercel/kv": "^1.0.1"
-  },
-  "scripts": {
-    "dev": "vercel dev"
   }
 }
-
-
-
